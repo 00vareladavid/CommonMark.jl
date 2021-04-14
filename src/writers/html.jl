@@ -75,6 +75,7 @@ function write_html(link::Link, r, n, ent)
         if !isempty(link.title)
             push!(attrs, "title" => escape_xml(link.title))
         end
+        push!(attrs, "class" => "link underline-hover blue") # mine
         tag(r, "a", attributes(r, n, attrs))
     else
         tag(r, "/a")
@@ -105,7 +106,15 @@ end
 
 write_html(::Emph, r, n, ent) = tag(r, ent ? "em" : "/em", ent ? attributes(r, n) : [])
 
-write_html(::Strong, r, n, ent) = tag(r, ent ? "strong" : "/strong", ent ? attributes(r, n) : [])
+function write_html(::Strong, r, n, ent)
+    if ent
+        attrs = attributes(r, n)
+        push!(attrs, "class" => "normal dark-gray bg-half") # mine
+        tag(r, "strong", attrs)
+    else
+        tag(r, "/strong")
+    end
+end
 
 function write_html(::Paragraph, r, n, ent)
     grandparent = n.parent.parent
@@ -126,26 +135,30 @@ end
 
 function write_html(::Heading, r, n, ent)
     tagname = "h$(n.t.level)"
+    level = min(n.t.level + 1, 6)
+    title = n.first_child.literal
+    ID = replace(lowercase(title), " " => "_")
     if ent
         attrs = attributes(r, n)
+        push!(attrs, "class" => "f$(level) lh-title jost ttc normal") # mine
+        push!(attrs, "id" => ID) # mine
         cr(r)
         tag(r, tagname, attrs)
-        # Insert auto-generated anchor Links for all Headings with IDs.
-        # The Link is not added to the document's AST.
-        if haskey(n.meta, "id")
-            anchor = Node(Link())
-            anchor.t.destination = "#" * n.meta["id"]
-            anchor.meta["class"] = ["anchor"]
-            write_html(r, anchor)
-        end
+        tag(r, "a", attributes(r, n, [
+            "class" => "link black underline-hover",
+            "href" => "#" * ID
+        ]))
     else
+        tag(r, "/a")
         tag(r, "/$(tagname)")
         cr(r)
     end
 end
 
 function write_html(::Code, r, n, ent)
-    tag(r, "code", attributes(r, n))
+    attrs = attributes(r, n)
+    push!(attrs, "class" => "fira-code") # mine
+    tag(r, "code", attrs)
     literal(r, escape_xml(n.literal))
     tag(r, "/code")
 end
@@ -157,7 +170,9 @@ function write_html(::CodeBlock, r, n, ent)
         push!(attrs, "class" => "language-$(escape_xml(first(info_words)))")
     end
     cr(r)
-    tag(r, "pre")
+    pre_attrs = ["class" => "pre overflow-auto br2 pa2 bg-near-white"] # mine
+    tag(r, "pre", pre_attrs) # mine
+    attrs = ["class" => "f5 fira-code"] # mine
     tag(r, "code", attrs)
     literal(r, _syntax_highlighter(r, MIME("text/html"), n, escape_xml))
     tag(r, "/code")
